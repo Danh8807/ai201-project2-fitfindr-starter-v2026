@@ -17,8 +17,10 @@ import config
 import trace
 from tools import search_listings, suggest_outfit, create_fit_card
 from generate import ModelUnavailable
+import re
 
-
+_FILLER = {"looking", "for", "a", "an", "the", "i", "im", "i'm", "want", "need",
+           "find", "me", "some", "please", "under", "below", "size", "in"}
 # ── session state ─────────────────────────────────────────────────────────────
 
 def new_session(query: str, wardrobe: dict) -> dict:
@@ -48,6 +50,36 @@ def new_session(query: str, wardrobe: dict) -> dict:
 
 
 # ── planning loop ─────────────────────────────────────────────────────────────
+def parse_query(query: str) -> dict:
+    """Regex parser: pulls out max_price and size, treats the rest as the description."""
+    text = query.lower()
+
+    max_price = None
+    m = (re.search(r"(?:under|below|less than|up to|max)\s*\$?\s*(\d+(?:\.\d+)?)", text)
+         or re.search(r"\$\s*(\d+(?:\.\d+)?)", text))
+    if m:
+        max_price = float(m.group(1))
+        text = text.replace(m.group(0), " ")
+
+    size = None
+    m = re.search(r"\bsize\s+([a-z0-9/]+)", text)
+    if m:
+        size = m.group(1)
+        text = text.replace(m.group(0), " ")
+
+    words = [w for w in re.findall(r"[a-z0-9']+", text) if w not in _FILLER]
+    return {"description": " ".join(words), "size": size, "max_price": max_price}
+
+
+def _empty_search_message(parsed: dict) -> str:
+    tips = []
+    if parsed["max_price"] is not None:
+        tips.append(f"raise your price limit above ${parsed['max_price']:.0f}")
+    if parsed["size"]:
+        tips.append(f"drop or change the size ({parsed['size'].upper()})")
+    tips.append("use fewer or broader description words")
+    return (f"No listings matched '{parsed['description']}'. Try to "
+            + ", or ".join(tips) + ".")
 
 def run_agent(query: str, wardrobe: dict) -> dict:
     """
@@ -107,8 +139,36 @@ def run_agent(query: str, wardrobe: dict) -> dict:
     """
     session = new_session(query, wardrobe)
 
-    # TODO: delete these two lines and build the loop.
-    session["error"] = "The planning loop isn't built yet — see the TODO in agent.py."
+    step = "search"
+    count = 0
+
+    while step != "done":
+        count += 1
+        trace.check_iterations(count)
+
+        if step == "search":
+            session["parsed"] = parse_query(session["query"])
+            p = session["parsed"]
+            session["search_results"] = search_listings(
+                p["description"], p["size"], p["max_price"])
+
+            # THE BRANCH
+            if not session["search_results"]:
+                session["error"] = _empty_search_message(p)
+                return session
+            session["selected_item"] = session["search_results"][0]
+            step = "outfit"
+
+        elif step == "outfit":
+            session["outfit_suggestion"] = suggest_outfit(
+                session["selected_item"], session["wardrobe"])
+            step = "card"
+
+        elif step == "card":
+            session["fit_card"] = create_fit_card(
+                session["outfit_suggestion"], session["selected_item"])
+            step = "done"
+
     return session
 
 
