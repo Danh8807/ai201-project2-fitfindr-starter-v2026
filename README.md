@@ -59,24 +59,24 @@
 
 ### `search_listings`
 
-- **What it does:**
-- **Inputs:** <!-- name and type each: `max_price` (float), not "a price" -->
-- **Returns:**
-- **When it has nothing:**
+- **What it does:** Returns listings that match the description, size, and price ceiling.
+- **Inputs:** <!-- name and type each: `max_price` (float), not "a price" --> `description` (str), `size` (str or None), `max_price` (float or None)
+- **Returns:**A list of full listing dicts (id, title, description, category, style_tags, size, condition, price, colors, brand, platform).
+- **When it has nothing:** Returns `[]`. Never None, never an exception.
 
 ### `suggest_outfit`
 
-- **What it does:**
-- **Inputs:**
-- **Returns:**
-- **When it has nothing:**
+-**What it does:** Takes one listing and the user's wardrobe and returns outfit ideas that pair the listing with wardrobe pieces.
+- **Inputs:** `new_item` (dict, one listing), `wardrobe` (dict with an `"items"` key holding a list of dicts: id, name, category, colors, style_tags, notes which may be null)
+- **Returns:** A list of outfit idea strings. Each names the new item and at least one wardrobe piece by its `name`.
+- **When it has nothing:**Returns a list of general styling suggestions that mention no wardrobe pieces. Never an empty list.
 
 ### `create_fit_card`
 
-- **What it does:**
-- **Inputs:**
-- **Returns:**
-- **When it has nothing:**
+- **What it does:** Writes a short caption someone would actually post.
+- **Inputs:** `outfit` (str, one outfit idea), `new_item` (dict, one listing)
+- **Returns:** One caption string, one to three sentences, mentioning the item.
+- **When it has nothing:** If the model call fails or returns empty text, returns a fallback string built from the item's title and price. Never None. 
 
 ---
 
@@ -93,7 +93,7 @@
      The grader checks your code against what you claim here, so the file and
      function have to be real. -->
 
-**Branch rule:**
+**Branch rule:**If `search_listings` returns an empty list, put a message in `session["message"]` naming what the user could change (raise the price limit, drop or change the size, use fewer description words), leave `session["fit_card"]` as None, and stop. Otherwise, store the first result in `session["selected_item"]` and call `suggest_outfit`.
 
 **Where it lives:** `agent.py::run_agent`
 
