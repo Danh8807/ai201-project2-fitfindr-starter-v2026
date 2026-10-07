@@ -43,9 +43,7 @@ Given a query that matches no listings, the agent stops before calling
 ---
 
 ## 3. Something about state
-
-<!-- YOU WRITE THIS ONE.
-
+The id in session['selected_item'] is identical to the id of the item passed into suggest_outfit <!-- YOU WRITE THIS ONE.
      How would you know that the item your search found is the same item the
      next tool received? Name something countable or observable.
 
@@ -56,14 +54,14 @@ Given a query that matches no listings, the agent stops before calling
 
 
 
-**Why this target:**
+**Why this target:** Ids are unique and you can print them, so the check is a plain comparison. This is ordinary code with no model involved, so any miss is a real bug, not noise.
 
 
 
 ---
 
 ## 4. Something about the fit card
-
+In at least 4 of 5 runs on the same item, the fit card is non-empty, 1 to 3 sentences, and mentions the item's title or a key word from it.
 <!-- YOU WRITE THIS ONE.
 
      The fit card calls a model, so the same input can produce different words
@@ -78,13 +76,13 @@ Given a query that matches no listings, the agent stops before calling
 
 
 **Why this target:**
-
+the wording changes every run, but length and mention of the item don't, so they're checkable. A model occasionally rambles or drops the item name, and 5 of 5 would punish normal variation instead of catching bugs.
 
 
 ---
 
 ## 5. Your choice
-
+Searching size 'M' returns lst_002 (S/M) and lst_004 (M) and never lst_006 (L), in 5 of 5 tries. 
 <!-- YOU WRITE THIS ONE TOO.
 
      Pick something you actually care about getting right. Speed, the empty
@@ -95,8 +93,7 @@ Given a query that matches no listings, the agent stops before calling
 
 
 **Why this target:**
-
-
+The token-splitting rule is custom logic, which makes it your likeliest source of bugs, and those listings are real examples from the data.
 
 ---
 
