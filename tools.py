@@ -26,6 +26,16 @@ from utils.data_loader import load_listings
 
 
 # ── Tool 1: search_listings ───────────────────────────────────────────────────
+import re
+
+def _words(text: str) -> set[str]:
+    """Lowercase word tokens, with a trailing plural 's' stripped ('tees' -> 'tee')."""
+    toks = re.findall(r"[a-z0-9']+", text.lower())
+    return {t[:-1] if len(t) > 3 and t.endswith("s") else t for t in toks}
+
+def _size_tokens(size_str: str) -> set[str]:
+    """'S/M' -> {'s','m'}; 'XL (oversized)' -> {'xl','oversized'}; 'US 9' -> {'us','9'}."""
+    return {t for t in re.split(r"[\s/()]+", size_str.lower()) if t}
 
 def search_listings(
     description: str,
@@ -79,7 +89,23 @@ def search_listings(
         python -c "from tools import search_listings; print(search_listings('graphic tee', max_price=30))"
     """
     # TODO: replace this with your implementation
-    return []
+    query = _words(description)
+    scored = []
+    for item in load_listings():
+        if max_price is not None and item["price"] > max_price:
+            continue
+        if size is not None and size.lower() not in _size_tokens(item["size"]):
+            continue
+        haystack = _words(" ".join([
+            item["title"], item["description"], item["category"],
+            " ".join(item["style_tags"]), " ".join(item["colors"]),
+            item["brand"] or "",   # brand is often None
+        ]))
+        score = len(query & haystack)
+        if score > 0:
+            scored.append((score, item))
+    scored.sort(key=lambda pair: pair[0], reverse=True)   # stable: ties keep file order
+    return [item for _, item in scored][: config.SEARCH_RESULT_LIMIT]
 
 
 # ── Tool 2: suggest_outfit ────────────────────────────────────────────────────
@@ -113,7 +139,37 @@ def suggest_outfit(new_item: dict, wardrobe: dict) -> str:
         python -c "from tools import suggest_outfit; from utils.data_loader import get_example_wardrobe, load_listings; print(suggest_outfit(load_listings()[0], get_example_wardrobe()))"
     """
     # TODO: replace this with your implementation
-    return ""
+    items = (wardrobe or {}).get("items") or []
+
+    item_desc = (
+        f"{new_item['title']} ({new_item['category']}, "
+        f"colors: {', '.join(new_item['colors'])}, "
+        f"style: {', '.join(new_item['style_tags'])})"
+    )
+
+    if not items:
+        prompt = (
+            f"Someone is thinking of buying this thrifted item: {item_desc}.\n"
+            "They haven't entered a wardrobe. Give one or two general outfit ideas "
+            "for styling it: what kinds of pieces, colors and shoes pair well. "
+            "Keep it under 120 words."
+        )
+    else:
+        closet = "\n".join(
+            f"- {w['name']} ({w['category']}, {', '.join(w['colors'])})"
+            + (f" — {w['notes']}" if w.get("notes") else "")   # notes can be null
+            for w in items
+        )
+        prompt = (
+            f"Someone is thinking of buying this thrifted item: {item_desc}.\n"
+            f"Their wardrobe:\n{closet}\n\n"
+            "Suggest one or two outfits that combine the new item with pieces "
+            "from this wardrobe. Name the wardrobe pieces exactly as listed. "
+            "Keep it under 150 words."
+        )
+
+    result = generate(prompt)   # CHECK: real signature in generate.py
+    return result.strip() or "Try pairing it with simple basics and neutral shoes."
 
 
 # ── Tool 3: create_fit_card ───────────────────────────────────────────────────
@@ -153,4 +209,22 @@ def create_fit_card(outfit: str, new_item: dict) -> str:
         python -c "from tools import create_fit_card; from utils.data_loader import load_listings; print(create_fit_card('jeans and white sneakers', load_listings()[0]))"
     """
     # TODO: replace this with your implementation
-    return ""
+    if not outfit or not outfit.strip():
+        return "No outfit was provided, so there's nothing to write a fit card about yet."
+
+    prompt = (
+        "Write a short social media caption (2 to 4 sentences) for someone "
+        "posting about a thrift find. It should sound like a real post, not a "
+        "product description, and be specific about the vibe.\n"
+        f"Item: {new_item['title']}\n"
+        f"Price: ${new_item['price']:.0f}\n"
+        f"Platform: {new_item['platform']}\n"
+        f"Outfit idea: {outfit}\n"
+        "Mention the item, the price and the platform once each. "
+        "Return only the caption."
+    )
+
+    result = generate(prompt)   # CHECK: real signature in generate.py
+    return result.strip() or (
+        f"Found {new_item['title']} on {new_item['platform']} for ${new_item['price']:.0f}."
+    )
