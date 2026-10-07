@@ -97,9 +97,9 @@
 
 **Where it lives:** `agent.py::run_agent`
 
-**How the query is parsed:** <!-- regex, string splitting, or asking the model — say which -->
+**How the query is parsed:** With regex, in `agent.py::parse_query`. It pulls out a price ("under $30", "below 30", "up to 30"), then a size ("size M"), drops filler words, and treats what's left as the description. <!-- regex, string splitting, or asking the model — say which -->
 
-**What moves through the session:** <!-- which fields, in what order -->
+**What moves through the session:** `query` → `parsed` (description, size, max_price) → `search_results` → `selected_item` → `outfit_suggestion` → `fit_card`. `error` is set only when the run stops early. Each tool reads its inputs back out of the session instead of taking the previous call's return value directly. <!-- which fields, in what order -->
 
 ---
 
@@ -111,30 +111,85 @@
      2. Your three per-tool terminal tests — the command and what it printed. -->
 
 **One full query**
-
 ```
-$ python app.py ask '...'
+$ python app.py ask 'vintage graphic tee under $30, size M'
 
+  Found:    Y2K Baby Tee — Butterfly Print — $18.0 on depop
+
+  Outfit:   **Outfit 1: Casual Y2K Streetwear**
+Pair the Y2K Baby Tee — Butterfly Print with the **Baggy straight-leg jeans, dark wash** and the **Brown leather belt**.Layer the **Vintage black denim jacket** over top. Finish the look with the **Chunky white sneakers** and the **Black crossbody bag** for an effortless, throwback vibe.
+
+**Outfit 2: Soft Contrast**
+Style the Y2K Baby Tee — Butterfly Print tucked into the **Wide-leg khaki trousers**. Throw the **Black cropped zip hoodie** over your shoulders or wear it unzipped, and step into the **Black combat boots** to balance the cute butterfly graphic with an edgy, grounded footwear choice.
+
+  Fit card: Obsessed with this Y2K baby tee with the cutest butterfly print. Found it for just $18 and knew I had to list it on Depop before I hoard all the early 2000s streetwear pieces. It’s giving total 90s-meets-aughts mall goth vibes depending on how you style it.
+
+2 model calls this session, 476 prompt + 220 output tokens
 ```
+
 
 **The three tools, tested one at a time**
 
-```
-$ python -c "from tools import search_listings; print(search_listings('graphic tee', max_price=30))"
+`search_listings`
 
 ```
+$ python -c "from tools import search_listings as s; print([x['id'] for x in s('graphic tee', 'M', 30)])"
+['lst_002', 'lst_017']
+
+$ python -c "from tools import search_listings as s; print([x['id'] for x in s('graphic tee', 'L', 30)])"
+['lst_006', 'lst_033', 'lst_015']
+
+$ python -c "from tools import search_listings as s; print(s('zzzzz', None, None))"
+[]
+```
+
+`suggest_outfit` (example wardrobe, then empty wardrobe)
 
 ```
-$ python -c "from tools import suggest_outfit; ..."
+$ python -c "from tools import suggest_outfit; from utils.data_loader import get_example_wardrobe, load_listings; print(suggest_outfit(load_listings()[0], get_example_wardrobe()))"
+**Outfit 1: Casual Streetwear**
+Pair the Vintage Levi's 501 Jeans with the White ribbed tank top tucked in. Layer the Oversized grey crewneck sweatshirton top, and finish with the Chunky white sneakers and Black crossbody bag for an effortless, classic look.
 
+**Outfit 2: Edgy Contrast**
+Style the Vintage Levi's 501 Jeans with the Black cropped zip hoodie and the Vintage black denim jacket for a cool double-denim moment. Accessorize with the Brown leather belt and anchor the outfit with the Black combat boots.
+
+$ python -c "from tools import suggest_outfit; from utils.data_loader import load_listings; print(suggest_outfit(load_listings()[0], {'items': []}))"
+**Outfit 1: Casual Streetwear**
+Pair the 501s with an oversized graphic tee or a vintage band t-shirt in white, grey, or black. Layer with a distressed leather jacket or a boxy flannel. Finish with classic retro sneakers like Nike Dunks or Adidas Sambas.
+
+**Outfit 2: Effortless Chic**
+Tuck a fitted black ribbed tank top or a crisp, oversized white button-down shirt into the jeans. Add a brown leather belt to cinch the waist. Complete the look with black leather loafers, heeled ankle boots, and minimalist silver jewelry for a timeless, balanced vibe.
 ```
 
-```
-$ python -c "from tools import create_fit_card; ..."
+`create_fit_card` (cache off, three runs, then the empty-outfit case)
 
 ```
+$ $env:AI201_CACHE = "0"
+$ python -c "from tools import create_fit_card; from utils.data_loader import load_listings; print(create_fit_card('jeans and white sneakers', load_listings()[0]))"
+Found these vintage Levi's 501 jeans on Depop for $38 and I am never taking them off. That perfect broken-in medium washgives off the ultimate effortless 90s indie sleaze vibe. Just need to style them with my beat-up white sneakers and a simple tee for the easiest everyday uniform.
 
----
+(same command, run 2)
+Found these vintage Levi's 501 jeans in the absolute best medium wash and couldn't pass them up. For $38, they have thatperfectly broken-in, effortless 90s vibe I've been hunting for. Just dropped them on my depop so someone else can live out their dream outfit of beat-up denim and crisp white sneakers.
+
+(same command, run 3)
+scored these vintage Levi's 501 jeans on depop for just $38 and they fit like an absolute dream. obsessed with the medium wash and that perfect 90s slouch. can't wait to style them with a basic tee and fresh white sneakers for that ultimate effortless look.
+
+$ python -c "from tools import create_fit_card; from utils.data_loader import load_listings; print(create_fit_card('   ', load_listings()[0]))"
+No outfit was provided, so there's nothing to write a fit card about yet.
+```
+
+**State check** (the id in `selected_item` matches the first search result)
+
+```
+$ python -c "from agent import run_agent; from utils.data_loader import get_example_wardrobe as w; s = run_agent('graphic tee under `$30', w()); print(s['parsed']); print(s['selected_item']['id'], s['search_results'][0]['id'])"
+{'description': 'graphic tee', 'size': None, 'max_price': 30.0}   <- paste what YOUR run printed with the backtick
+lst_002 lst_002
+```
+
+**Known issues noticed during the build** (for next unit's testing):
+- The model sometimes glues words together ("washgives", "thatperfectly", "sweatshirton", "hoodieon").
+- Some fit cards read as if the writer is *selling* the item ("list it on Depop", "just dropped them on my depop"). They still mention item, price and platform, so a property check would pass them.
+
 
 ## How I Used AI
 
@@ -147,15 +202,16 @@ $ python -c "from tools import create_fit_card; ..."
 
 **Moment 1**
 
-- *What I asked for:*
-- *What came back:*
-- *What I changed:*
+- *What I asked for:* I asked Claude to write my Milestone 2 tool specs and branch rule, then pasted my data fields and wardrobe schema so it could tighten them.
+- *What came back:* A spec where `suggest_outfit` returned a list of strings, `search_listings` required every description word to match, `create_fit_card` was 1 to 3 sentences, and the branch wrote to `session["message"]`. When I pasted `tools.py` and `agent.py`, the starter said otherwise: a single string, keyword-overlap scoring with zero scores dropped, 2 to 4 sentences, and `session["error"]`.
+- *What I changed:* I rewrote the Tool Inventory and branch rule to match the starter, and I made size matching token-based so "M" matches "S/M" but "S" can't match "US 9". I also corrected my fit card criterion to 2 to 4 sentences.
 
 **Moment 2**
 
-- *What I asked for:*
-- *What came back:*
-- *What I changed:*
+- *What I asked for:* I ran `create_fit_card` three times on the same item to check that the captions varied.
+- *What came back:* Three word-for-word identical captions.
+- *What I changed:* I found `CACHE_ENABLED = os.getenv("AI201_CACHE", "1") != "0"` in `config.py`, so the starter was returning a saved answer for the identical prompt. I set `$env:AI201_CACHE = "0"` for the test and got three different captions. I turned caching back on while building the loop so repeat runs were free.
+
 
 <!-- ═══════════════════════ UNIT 4 — THE TEST ═══════════════════════
 
