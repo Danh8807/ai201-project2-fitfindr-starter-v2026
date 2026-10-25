@@ -222,6 +222,7 @@ def create_fit_card(outfit: str, new_item: dict) -> str:
         f"Outfit idea: {outfit}\n"
         "Mention the item, the price and the platform once each. "
         "Return only the caption."
+        "You MUST strictly include the item's exact price formatted specifically with two decimals (e.g., $30.00)."
     )
 
     result = generate(prompt)   # CHECK: real signature in generate.py
