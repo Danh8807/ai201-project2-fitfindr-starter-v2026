@@ -47,6 +47,30 @@ SCENARIOS = [
     # For a fit-card criterion, you probably want the SAME query listed more
     # than once, or several different items, depending on what your criterion
     # actually says.
+    {
+        # State check (Criterion 3): Needs a normal query that finds an item 
+        # so we can verify the ID passed into suggest_outfit matches the selected_item.
+        "name": "state id check",
+        "query": "silk slip dress in midi length",
+        "wardrobe": "example",
+        "criterion": 3,
+    },
+    {
+        # Fit card check (Criterion 4): Needs the same query/item run multiple times 
+        # to check for length and keyword inclusion.
+        "name": "fit card format",
+        "query": "platform sneakers size 8",
+        "wardrobe": "example",
+        "criterion": 4,
+    },
+    {
+        # Size filter check (Criterion 5): Explicitly searching for size M 
+        # to ensure the search tool's filtering logic includes M and S/M but not L.
+        "name": "size M filter",
+        "query": "jacket in size M",
+        "wardrobe": "example",
+        "criterion": 5,
+    }
 ]
 
 WARDROBES = ("example", "empty")

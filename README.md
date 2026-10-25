@@ -233,17 +233,69 @@ lst_002 lst_002
 
 | Criterion | Target | Try 1 | Try 2 | Try 3 | Try 4 | Try 5 | Verdict |
 |---|---|---|---|---|---|---|---|
-| 1.  |  |  |  |  |  |  |  |
-| 2.  |  |  |  |  |  |  |  |
-| 3.  |  |  |  |  |  |  |  |
-| 4.  |  |  |  |  |  |  |  |
-| 5.  |  |  |  |  |  |  |  |
+| 1. Matching query completes | 4 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 2. Impossible query stops | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 3. State ID check | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 4. Fit card format | 4 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 5. Size M filter | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) | 
 
-**Real output from one try**, pasted as text, naming the file and function
+**Real output from one try (Produced by `run_agent()` in `agent.py`)**, pasted as text, naming the file and function
 that produced it:
 
 ```
+*Criterion 1 (Matching query completes)*
+[1] search_listings
+      in:  dict with keys: description, size, max_price
+      out: 10 items: Y2K Baby Tee — Butterfly Print, Graphic Tee — 2003 Tour Bootleg Style, Vintage Band Tee — Faded Grey … +7 more
+[2] suggest_outfit
+      in:  dict with keys: item, wardrobe
+      out: **Outfit 1: Casual Y2K Streetwear** Pair the Y2K Baby Tee — Butterfly Print with the baggy straight-leg jeans,…
+[3] create_fit_card
+      in:  dict with keys: outfit, item
+      out: Found the ultimate butterfly print Y2K baby tee on Depop for just $18 and I am obsessed. Gives off total early…
+  try 1: completed — fit card 274 chars
 
+*Criterion 2 (Impossible query stops early)*
+[1] search_listings
+      in:  dict with keys: description, size, max_price
+      out: [] (empty)
+  try 1: stopped early — No listings matched 'designer ballgown'. Try to raise your p
+
+*Criterion 3 (State ID check)*
+[1] search_listings
+      in:  dict with keys: description, size, max_price
+      out: 5 items: 90s Silk Slip Dress — Floral, Midi Length, Y2K Baby Tee — Butterfly Print, High-Waisted Denim Shorts— Cutoff … +2 more
+[2] suggest_outfit
+      in:  dict with keys: item, wardrobe
+      out: **Outfit 1: 90s Grunge Contrast** Layer the **Oversized grey crewneck sweatshirt** directly over the silk slip…
+[3] create_fit_card
+      in:  dict with keys: outfit, item
+      out: Found the absolute holy grail 90s floral midi slip dress for only $30 and I’m obsessed. The print and drape ar…
+  try 1: completed — fit card 314 chars
+
+*Criterion 4 (Fit card format)*
+[1] search_listings
+      in:  dict with keys: description, size, max_price
+      out: 1 items: Platform Sneakers — White Chunky Sole
+[2] suggest_outfit
+      in:  dict with keys: item, wardrobe
+      out: **Outfit 1: Casual Streetwear** Pair the platform sneakers with the **White ribbed tank top** and **Baggy stra…
+[3] create_fit_card
+      in:  dict with keys: outfit, item
+      out: scored these chunky white platform sneakers on Poshmark for just $48 and I am obsessed. they’ve got that ultim…
+  try 1: completed — fit card 281 chars
+
+*Criterion 5 (Size M filter)*
+[1] search_listings
+      in:  dict with keys: description, size, max_price
+      out: 3 items: 90s Track Jacket — Navy/White Stripe, 90s Leather Bomber — Black, Shacket — Olive Canvas
+[2] suggest_outfit
+      in:  dict with keys: item, wardrobe
+      out: **Outfit 1: Sporty Streetwear** Layer the 90s Track Jacket over the white ribbed tank top, paired with the bag…
+[3] create_fit_card
+      in:  dict with keys: outfit, item
+      out: Still buzzing over this navy and white 90s track jacket I just scored on Poshmark. Honestly $45 was a steal fo…
+  try 1: completed — fit card 316 chars
 ```
 
 ---
@@ -275,7 +327,9 @@ that produced it:
 | 5 |  |  |  |  |
 
 **Diagnoses**
+I missed nothing at all. All 5 criteria met their targets successfully across all 5 tries. The tool routing, the branch logic for empty searches, and the model's output generation (fit cards) were highly consistent. 
 
+Because of this 100% success rate, my original targets (like 4 of 5 for Criterion 1 and 4) were probably too low. If I were to tighten a criterion, I would raise Criterion 4 (Fit card format) to 5 of 5 and enforce a stricter rule, such as requiring the model to ALWAYS state the exact price formatted as "$X.00".
 
 
 ---
