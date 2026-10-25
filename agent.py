@@ -143,38 +143,59 @@ def run_agent(query: str, wardrobe: dict) -> dict:
     step = "search"
     count = 0
 
-    while step != "done":
-        count += 1
-        trace.check_iterations(count)
+    try:
+        while step != "done":
+            count += 1
+            trace.check_iterations(count)
 
-        if step == "search":
-            session["parsed"] = parse_query(session["query"])
-            p = session["parsed"]
-            
-            session["search_results"] = mcp_client.call_tool(
-                "search_listings",
-                {
+            if step == "search":
+                session["parsed"] = parse_query(session["query"])
+                p = session["parsed"]
+                
+                search_inputs = {
                     "description": p["description"],
                     "size": p["size"],
                     "max_price": p["max_price"]
                 }
-            )
-            if not session["search_results"]:
-                session["error"] = _empty_search_message(p)
-                return session
-            
-            session["selected_item"] = session["search_results"][0]
-            step = "outfit"  
+                
+                session["search_results"] = mcp_client.call_tool(
+                    "search_listings",
+                    search_inputs
+                )
+                
+                trace.step("search_listings", inputs=search_inputs, returned=session["search_results"])
 
-        elif step == "outfit":
-            session["outfit_suggestion"] = suggest_outfit(
-                session["selected_item"], session["wardrobe"])
-            step = "card"
+                # THE BRANCH
+                if not session["search_results"]:
+                    session["error"] = _empty_search_message(p)
+                    return session
+                
+                session["selected_item"] = session["search_results"][0]
+                step = "outfit"
 
-        elif step == "card":
-            session["fit_card"] = create_fit_card(
-                session["outfit_suggestion"], session["selected_item"])
-            step = "done"
+            elif step == "outfit":
+                session["outfit_suggestion"] = suggest_outfit(
+                    session["selected_item"], session["wardrobe"])
+                
+                # 2b. Ghi Trace cho bước suggest_outfit
+                trace.step("suggest_outfit", 
+                           inputs={"item": session["selected_item"], "wardrobe": session["wardrobe"]}, 
+                           returned=session["outfit_suggestion"])
+                
+                step = "card"
+
+            elif step == "card":
+                session["fit_card"] = create_fit_card(
+                    session["outfit_suggestion"], session["selected_item"])
+                
+                trace.step("create_fit_card", 
+                           inputs={"outfit": session["outfit_suggestion"], "item": session["selected_item"]}, 
+                           returned=session["fit_card"])
+                
+                step = "done"
+
+    except ModelUnavailable:
+        session["error"] = "The AI model is currently unavailable. Please check your API key or your internet connection, then try again."
 
     return session
 

@@ -295,13 +295,29 @@ that produced it:
 **Happy path**
 
 ```
-
+[1] search_listings
+      in:  dict with keys: description, size, max_price
+      out: 2 items: Platform Sneakers — White Chunky Sole, Low-Top Canvas Sneakers — Off-White
+[2] suggest_outfit
+      in:  dict with keys: item, wardrobe
+      out: **Outfit 1: Casual Y2K Streetwear** Pair the **Platform Sneakers — White Chunky Sole** with the **Baggy straig…
+[3] create_fit_card
+      in:  dict with keys: outfit, item
+      out: Finally found the chunky white platform sneakers of my Y2K dreams on Poshmark for just $48! Obsessed with how 
 ```
 
 **Empty search**
 
 ```
+[1] search_listings
 
+      in:  dict with keys: description, size, max_price
+
+      out: [] (empty)
+
+
+
+  No listings matched 'weird neon yellow jacket'. Try to drop or change the size (XL), or use fewer or broader description words.
 ```
 
 **On the MCP move:** <!-- what changed in your code, and whether anything
