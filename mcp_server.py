@@ -69,20 +69,24 @@ mcp = FastMCP("fitfindr", log_level="WARNING")
 
 # ── TODO: uncomment and fill this in ──────────────────────────────────────────
 #
-# @mcp.tool()
-# def search_listings(
-#     description: str,
-#     size: str | None = None,
-#     max_price: float | None = None,
-# ) -> list[dict]:
-#     """
-#     <-- YOUR DESCRIPTION GOES HERE.
-#
-#         One or two sentences. What does this tool do, what does it need, and
-#         what does it give back when it finds nothing? Written for a reader
-#         who cannot see the code.
-#     """
-#     return _search_listings_impl(description, size, max_price)
+@mcp.tool()
+def search_listings(
+    description: str,
+    size: str | None = None,
+    max_price: float | None = None,
+) -> list[dict]:
+    """
+    <-- YOUR DESCRIPTION GOES HERE.
+
+        One or two sentences. What does this tool do, what does it need, and
+        what does it give back when it finds nothing? Written for a reader
+        who cannot see the code.
+    - **What it does:** Returns listings that match the description, size, and price ceiling.
+    - **Inputs:** <!-- name and type each: `max_price` (float), not "a price" --> `description` (str), `size` (str or None), `max_price` (float or None)
+    - **Returns:**A list of full listing dicts (id, title, description, category, style_tags, size, condition, price, colors, brand, platform).
+    - **When it has nothing:** Returns `[]`. Never None, never an exception.
+    """
+    return _search_listings_impl(description, size, max_price)
 #
 # ──────────────────────────────────────────────────────────────────────────────
 #
